@@ -1,0 +1,8 @@
+#!/bin/sh
+# arenax pre-commit hook (advisory, opt-in, never blocks per FR-13)
+# Invokes review-staged; always exits 0 so commit proceeds.
+# To enable: arenax setup --install-hooks
+set -e
+echo "[arenax] advisory pre-commit: running review-staged (local by default)..."
+arenax review-staged --backend local || echo "[arenax] review completed (or skipped); commit not blocked."
+exit 0

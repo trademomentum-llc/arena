@@ -1,0 +1,13 @@
+#!/bin/sh
+# arenax pre-commit (blocking mode, opt-in via config hook_mode: blocking)
+# Only blocks on council reject or low confidence. Requires --backend council in practice.
+set -e
+echo "[arenax] BLOCKING pre-commit (council)..."
+# force council for the gate
+arenax review-staged --backend council
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "[arenax] council review failed or low confidence; blocking commit (per hook_mode)."
+  exit 1
+fi
+exit 0

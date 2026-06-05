@@ -1,0 +1,11 @@
+#!/bin/sh
+# arenax pre-push blocking
+set -e
+echo "[arenax] BLOCKING pre-push (council)..."
+arenax review-range origin/$(git rev-parse --abbrev-ref HEAD)..HEAD --backend council
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "[arenax] blocking on council verdict."
+  exit 1
+fi
+exit 0

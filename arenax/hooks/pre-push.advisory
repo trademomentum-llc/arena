@@ -1,0 +1,8 @@
+#!/bin/sh
+# arenax pre-push hook (advisory)
+# Runs review-range on the pushed range; always exit 0.
+set -e
+echo "[arenax] advisory pre-push: running review on range..."
+# typical: origin/BRANCH..HEAD but git pre-push gives refs, keep simple
+arenax review-range origin/$(git rev-parse --abbrev-ref HEAD)..HEAD --backend local || echo "[arenax] review done; push not blocked."
+exit 0
