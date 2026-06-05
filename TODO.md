@@ -10,19 +10,19 @@ Last updated: 2026-06-05. Status values: TODO, IN PROGRESS, BLOCKED, DONE.
 | M0-2 | Create PROJECT_SUMMARY.md and TODO.md | DONE | this file |
 | M0-3 | Spec self-review (placeholders, consistency, scope, ambiguity) | IN PROGRESS | brainstorming step 7 |
 | M0-4 | User reviews written specs | TODO | gate before implementation plan |
-| M0-5 | Initialize Git for arena + .gitignore + initial commit | TODO | FR-16; expect rr-verify-guard on commit |
+| M0-5 | Initialize Git for arena + .gitignore + initial commit | DONE 2026-06-05 | FR-16; root commit dc6dcb8 on main, 51 files |
 
 ## Milestone 1 - Arena Core Delta (Rust)
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| M1-1 | Add `base_url` + `api_key_env` to `AgentDef` | TODO | `src/integration/config.rs` lines 27-32; `#[serde(default)]` |
-| M1-2 | Pass `base_url` through registration (OpenAI + Anthropic) | TODO | `src/integration/runner.rs` ~30/~44 use `with_config` |
-| M1-3 | Mirror in CLI create path | TODO | `src/cli/commands.rs` ~144/~155 |
-| M1-4 | Register default local worker `qwen-local` | TODO | `config/default.yaml`; graceful skip if endpoint down |
-| M1-5 | Add `--context @file`/stdin ingestion | TODO | FR-11; `resolve_context` helper |
-| M1-6 | Add loopback validation guard | TODO | NFR-4; reject non-loopback unless allow flag |
-| M1-7 | Rust unit tests for the delta | TODO | base_url parse, registration, resolve_context, loopback |
+| M1-1 | Add `base_url` + `api_key_env` to `AgentDef` | DONE | `src/integration/config.rs`; `#[serde(default)]`; serde test |
+| M1-2 | Pass `base_url` through registration (OpenAI + Anthropic) | DONE | `src/integration/runner.rs`; with_config + loopback guard |
+| M1-3 | Mirror in CLI create path | DONE | `src/cli/commands.rs`; resolve_context wired; local worker reg |
+| M1-4 | Register default local worker `qwen-local` | DONE | "qwen-coder-local" via ARENA_LOCAL_* envs + CLI hardcode + default.yaml |
+| M1-5 | Add `--context @file`/stdin ingestion | DONE | FR-11; `resolve_context` helper + tests + wiring |
+| M1-6 | Add loopback validation guard | DONE | NFR-4; `src/adapters/endpoint.rs` + validate in reg paths |
+| M1-7 | Rust unit tests for the delta | DONE | endpoint (6), context (4), agentdef serde, detect xai; baseline green |
 
 ## Milestone 2 - arenax Wrapper (Go)
 
