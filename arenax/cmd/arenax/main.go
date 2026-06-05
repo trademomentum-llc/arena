@@ -212,7 +212,8 @@ func runDoctor(args []string) {
 		fmt.Println("  libmorphlex.so -> MISSING (MX token count disabled)")
 	}
 	fmt.Println("  git ->", checkBin("git"))
-	fmt.Println("Status: partial (see full spec for complete table). Use --backend local for inference checks.")
+	fmt.Println("Status: partial (see full spec for complete table).")
+	fmt.Println("Tip: --backend mock for fully offline verification (uses arena built-in mocks). --backend local for real local model.")
 }
 
 func runSetup(args []string) {
@@ -245,6 +246,8 @@ func resolveWorkers(backend string, cfg *config.Config) []string {
 		return []string{"gpt-4-turbo", "claude-3-sonnet"}
 	case "council":
 		return []string{"gpt-4-turbo", "claude-3-sonnet"} // + council in spec later
+	case "mock":
+		return []string{"mock-reviewer-1", "mock-reviewer-2"}
 	default:
 		return []string{"qwen-coder-local"}
 	}
