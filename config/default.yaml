@@ -37,6 +37,13 @@ agents:
   #   model_path: "/path/to/morphlex.onnx"
   #   ffi_lib_path: "/path/to/libmorphlex.so"
 
+  - id: "qwen-coder-local"
+    backend: "openai"
+    model: "qwen2.5-coder:7b"
+    tier: "worker"
+    base_url: "http://localhost:11434/v1"
+    api_key_env: "ARENA_LOCAL_API_KEY"
+
 # Default council agents (for council mode)
 council_agents:
   - "claude-3-opus"
