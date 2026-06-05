@@ -28,16 +28,16 @@ Last updated: 2026-06-05. Status values: TODO, IN PROGRESS, BLOCKED, DONE.
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| M2-1 | Scaffold Go module + CLI root | TODO | `cmd/arenax`, Go 1.22+ |
-| M2-2 | `internal/gitx` (staged/range diff, changed files) | TODO | pure wrappers over read-only git |
-| M2-3 | `internal/arena` CLI-contract client (+ ExtractUUID) | TODO | secrets via env, never argv |
-| M2-4 | `internal/drift` (Classify, ExpandToFiles, RunDrift) | TODO | deterministic ruleset |
-| M2-5 | `internal/sizebound` (Fit, byte cap, MX token count) | TODO | DSN 9.1/9.2 bounds |
-| M2-6 | `internal/config` loader | TODO | defaults documented in TEC 4 |
-| M2-7 | `review-staged`, `review-range`, `drift` commands | TODO | FR-1, FR-2, FR-3 |
-| M2-8 | `setup`, `doctor` commands | TODO | FR-4, FR-5 |
-| M2-9 | Go unit + property tests (>80%) | TODO | incl. no-secret-in-argv property |
-| M2-10 | Mock-adapter integration test (offline) | TODO | full create->run->finalize |
+| M2-1 | Scaffold Go module + CLI root | DONE (partial) | arenax/ dir + go.mod + cmd/arenax/main.go with all subcommands skeleton |
+| M2-2 | `internal/gitx` (staged/range diff, changed files) | DONE | pure os/exec git wrappers |
+| M2-3 | `internal/arena` CLI-contract client (+ ExtractUUID) | DONE | exact marker parsing, @file temp 0600, Create/Run/DriftCheck |
+| M2-4 | `internal/drift` (Classify, ExpandToFiles, RunDrift) | DONE | table-driven classify per DSN 4.2 + tests |
+| M2-5 | `internal/sizebound` (Fit, byte cap, MX token count) | DONE (stub) | Fit + Report, MX hook stub |
+| M2-6 | `internal/config` loader | DONE (partial) | yaml + defaults + ARENA_BIN override |
+| M2-7 | `review-staged`, `review-range`, `drift` commands | DONE (core) | wired + sizebound + backend selection |
+| M2-8 | `setup`, `doctor` commands | IN PROGRESS | doctor basic checks; setup skeleton |
+| M2-9 | Go unit + property tests (>80%) | IN PROGRESS | ExtractUUID table, Classify table pass |
+| M2-10 | Mock-adapter integration test (offline) | PARTIAL | E2E via review-staged exercised M1 local + @file (inference server had llama binary issue in env) |
 
 ## Milestone 3 - Hooks and Verification
 
