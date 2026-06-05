@@ -1,0 +1,49 @@
+# Arena Configuration
+
+# Storage path for session data
+store_path: "./arena-sessions"
+
+# Default agents to register
+agents:
+  - id: "gpt-4-turbo"
+    backend: "openai"
+    model: "gpt-4-turbo"
+    tier: "worker"
+    api_key_env: "OPENAI_API_KEY"
+
+  - id: "gpt-4o"
+    backend: "openai"
+    model: "gpt-4o"
+    tier: "worker"
+    api_key_env: "OPENAI_API_KEY"
+
+  - id: "claude-3-opus"
+    backend: "anthropic"
+    model: "claude-3-opus-20240229"
+    tier: "council"
+    api_key_env: "ANTHROPIC_API_KEY"
+
+  - id: "claude-3-sonnet"
+    backend: "anthropic"
+    model: "claude-3-sonnet-20240229"
+    tier: "worker"
+    api_key_env: "ANTHROPIC_API_KEY"
+
+  # Uncomment when Morphlex is compiled
+  # - id: "morphlex-local"
+  #   backend: "morphlex"
+  #   model: "morphlex-125m"
+  #   tier: "worker"
+  #   model_path: "/path/to/morphlex.onnx"
+  #   ffi_lib_path: "/path/to/libmorphlex.so"
+
+# Default council agents (for council mode)
+council_agents:
+  - "claude-3-opus"
+  - "gpt-4o"
+
+# Auto-approve threshold (council confidence >= this => safe to auto-approve)
+auto_approve_threshold: 0.9
+
+# Metrics
+metrics_port: 9092

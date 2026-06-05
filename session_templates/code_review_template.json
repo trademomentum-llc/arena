@@ -1,0 +1,8 @@
+{
+  "session_type": "code-review",
+  "mode": "human-in-loop",
+  "workers": "gpt-4-turbo,claude-3-sonnet",
+  "council": "",
+  "task": "Review the provided code changes for correctness, security, performance, and maintainability",
+  "context": "./design_specs/coding_standards.md"
+}

@@ -1,0 +1,8 @@
+{
+  "session_type": "implementation",
+  "mode": "council",
+  "workers": "gpt-4-turbo,claude-3-sonnet",
+  "council": "claude-3-opus,gpt-4o",
+  "task": "Implement a solution for the given requirements focusing on correctness, security, performance, and adherence to coding standards",
+  "context": "./design_specs/coding_standards.md"
+}

@@ -1,0 +1,19 @@
+# Build output
+/target/
+
+# Runtime session data (JSONL sessions written by arena)
+/arena-sessions/
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Nested model-source clone (has its own .git; weights acquired separately)
+/Qwen3.6/
+
+# macOS
+.DS_Store

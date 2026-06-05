@@ -1,0 +1,8 @@
+{
+  "session_type": "validation",
+  "mode": "human-in-loop",
+  "workers": "gpt-4-turbo,claude-3-sonnet",
+  "council": "",
+  "task": "Validate the implementation against the specification",
+  "context": ""
+}
