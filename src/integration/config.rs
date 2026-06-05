@@ -29,6 +29,12 @@ pub struct AgentDef {
     pub backend: String,
     pub model: String,
     pub tier: String,
+    /// Optional override endpoint (e.g. http://localhost:11434/v1 for a local runtime).
+    #[serde(default)]
+    pub base_url: Option<String>,
+    /// Env var holding the API key; unused/ignored by loopback endpoints.
+    #[serde(default)]
+    pub api_key_env: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,12 +61,16 @@ impl Default for ArenaConfig {
                     backend: "openai".to_string(),
                     model: "gpt-4-turbo".to_string(),
                     tier: "worker".to_string(),
+                    base_url: None,
+                    api_key_env: None,
                 },
                 AgentDef {
                     id: "claude-3-sonnet".to_string(),
                     backend: "anthropic".to_string(),
                     model: "claude-3-sonnet-20240229".to_string(),
                     tier: "worker".to_string(),
+                    base_url: None,
+                    api_key_env: None,
                 },
             ],
             event_agents: EventAgentMapping {
@@ -141,5 +151,20 @@ mod tests {
             ForgejoEvent::from_webhook_type("unknown", ""),
             None
         );
+    }
+
+    #[test]
+    fn agentdef_base_url_defaults_none_and_parses_some() {
+        // Absent in YAML -> None (serde default)
+        let yaml_no_url = "id: a\nbackend: openai\nmodel: m\ntier: worker\n";
+        let a: AgentDef = serde_yaml::from_str(yaml_no_url).unwrap();
+        assert_eq!(a.base_url, None);
+        assert_eq!(a.api_key_env, None);
+
+        // Present in YAML -> Some
+        let yaml_url = "id: b\nbackend: openai\nmodel: m\ntier: worker\nbase_url: http://localhost:11434/v1\napi_key_env: LOCAL_API_KEY\n";
+        let b: AgentDef = serde_yaml::from_str(yaml_url).unwrap();
+        assert_eq!(b.base_url.as_deref(), Some("http://localhost:11434/v1"));
+        assert_eq!(b.api_key_env.as_deref(), Some("LOCAL_API_KEY"));
     }
 }
