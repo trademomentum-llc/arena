@@ -163,6 +163,29 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    if let Ok(key) = std::env::var("XAI_API_KEY") {
+        registry.register(
+            "grok-3",
+            Box::new(OpenAIAdapter::with_config(
+                key.clone(),
+                "grok-3".to_string(),
+                Some("https://api.x.ai/v1".to_string()),
+                30_000,
+                3,
+            )),
+        );
+        registry.register(
+            "grok-2",
+            Box::new(OpenAIAdapter::with_config(
+                key,
+                "grok-2".to_string(),
+                Some("https://api.x.ai/v1".to_string()),
+                30_000,
+                3,
+            )),
+        );
+    }
+
     // Register mock agents for demonstration
     registry.register(
         "mock-reviewer-1",
@@ -192,6 +215,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             task,
             context,
         } => {
+            let context = resolve_context(context)?;   // resolve @file or stdin (FR-11)
             let parsed_type = parse_session_type(&session_type, &task, &context)?;
             let parsed_mode = parse_mode(&mode)?;
 
@@ -536,19 +560,50 @@ fn parse_uuid(s: &str) -> Result<uuid::Uuid, Box<dyn std::error::Error>> {
     uuid::Uuid::parse_str(s).map_err(|e| e.into())
 }
 
+/// Resolve a `--context` argument: a literal string, `@<path>` to read the
+/// file's contents, or `-` to read stdin. This removes the ARG_MAX ceiling on
+/// large context (FR-11): callers pass `@<tempfile>` instead of a huge argv.
+fn resolve_context(raw: Option<String>) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    use std::io::Read;
+    match raw.as_deref() {
+        None => Ok(None),
+        Some("-") => {
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf)?;
+            Ok(Some(buf))
+        }
+        Some(s) if s.starts_with('@') => {
+            let content = std::fs::read_to_string(&s[1..])?;
+            Ok(Some(content))
+        }
+        Some(s) => Ok(Some(s.to_string())),
+    }
+}
+
 fn detect_backend(agent_id: &str) -> String {
-    match agent_id {
-        id if id.starts_with("AC") => "anthropic".to_string(),
-        id if id.starts_with("OC") => "openai".to_string(),
-        id if id.starts_with("GG") => "google".to_string(),
-        id if id.starts_with("QQ") => "qwen".to_string(),
-        id if id.starts_with("PP") => "perplexity".to_string(),
-        id if id.starts_with("XG") => "xai".to_string(),
-        id if id.starts_with("MK") => "moonshot".to_string(),
-        id if id.starts_with("ML") => "meta".to_string(),
-        id if id.starts_with("HD") => "deepseek".to_string(),
-        id if id.starts_with("MX") => "morphlex".to_string(),
-        _ => "unknown".to_string(),
+    let lower = agent_id.to_lowercase();
+    if lower.starts_with("ac") {
+        "anthropic".to_string()
+    } else if lower.starts_with("oc") {
+        "openai".to_string()
+    } else if lower.starts_with("gg") {
+        "google".to_string()
+    } else if lower.starts_with("qq") {
+        "qwen".to_string()
+    } else if lower.starts_with("pp") {
+        "perplexity".to_string()
+    } else if lower.starts_with("xg") || lower.starts_with("xai") || lower.starts_with("grok") {
+        "xai".to_string()
+    } else if lower.starts_with("mk") {
+        "moonshot".to_string()
+    } else if lower.starts_with("ml") {
+        "meta".to_string()
+    } else if lower.starts_with("hd") {
+        "deepseek".to_string()
+    } else if lower.starts_with("mx") {
+        "morphlex".to_string()
+    } else {
+        "unknown".to_string()
     }
 }
 
@@ -605,6 +660,63 @@ fn create_adapter_for_agent(
         "morphlex" => {
             Err("Morphlex adapter requires model path configuration".into())
         }
+        "xai" => {
+            let key = std::env::var("XAI_API_KEY")
+                .map_err(|_| "XAI_API_KEY not set")?;
+            Ok(Box::new(OpenAIAdapter::with_config(
+                key,
+                agent_id.to_string(),
+                Some("https://api.x.ai/v1".to_string()),
+                30_000,
+                3,
+            )))
+        }
         _ => Err(format!("Unknown backend for agent: {}", agent_id).into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_xai_backend() {
+        assert_eq!(detect_backend("XG"), "xai");
+        assert_eq!(detect_backend("XG-grok-3"), "xai");
+        assert_eq!(detect_backend("xai"), "xai");
+        assert_eq!(detect_backend("grok-3"), "xai");
+        assert_eq!(detect_backend("grok-2-latest"), "xai");
+        assert_eq!(detect_backend("AC-foo"), "anthropic");
+        assert_eq!(detect_backend("MX"), "morphlex");
+    }
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+
+    #[test]
+    fn resolve_literal_passthrough() {
+        assert_eq!(resolve_context(Some("hello".to_string())).unwrap(), Some("hello".to_string()));
+    }
+
+    #[test]
+    fn resolve_none_stays_none() {
+        assert_eq!(resolve_context(None).unwrap(), None);
+    }
+
+    #[test]
+    fn resolve_at_file_reads_contents() {
+        let path = std::env::temp_dir().join("arena_ctx_resolve_test.txt");
+        std::fs::write(&path, "file body 123").unwrap();
+        let arg = format!("@{}", path.display());
+        let got = resolve_context(Some(arg)).unwrap();
+        assert_eq!(got, Some("file body 123".to_string()));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn resolve_missing_file_errors() {
+        assert!(resolve_context(Some("@/no/such/file/xyz.txt".to_string())).is_err());
     }
 }
