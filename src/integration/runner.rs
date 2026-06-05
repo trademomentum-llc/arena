@@ -25,11 +25,20 @@ impl ArenaRunner {
             match agent_def.backend.as_str() {
                 "openai" => {
                     if let Ok(key) = std::env::var("OPENAI_API_KEY") {
+                        if let Some(url) = &agent_def.base_url {
+                            if let Err(e) = crate::adapters::endpoint::validate_local_endpoint(url, false) {
+                                warn!(agent = %agent_def.id, error = %e, "Skipping agent: invalid local endpoint");
+                                continue;
+                            }
+                        }
                         registry.register(
                             &agent_def.id,
-                            Box::new(crate::adapters::openai::OpenAIAdapter::new(
+                            Box::new(crate::adapters::openai::OpenAIAdapter::with_config(
                                 key,
                                 agent_def.model.clone(),
+                                agent_def.base_url.clone(),
+                                30_000,
+                                3,
                             )),
                         );
                         info!(agent = %agent_def.id, "Registered OpenAI agent");
@@ -39,11 +48,20 @@ impl ArenaRunner {
                 }
                 "anthropic" => {
                     if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
+                        if let Some(url) = &agent_def.base_url {
+                            if let Err(e) = crate::adapters::endpoint::validate_local_endpoint(url, false) {
+                                warn!(agent = %agent_def.id, error = %e, "Skipping agent: invalid local endpoint");
+                                continue;
+                            }
+                        }
                         registry.register(
                             &agent_def.id,
-                            Box::new(crate::adapters::anthropic::AnthropicAdapter::new(
+                            Box::new(crate::adapters::anthropic::AnthropicAdapter::with_config(
                                 key,
                                 agent_def.model.clone(),
+                                agent_def.base_url.clone(),
+                                30_000,
+                                3,
                             )),
                         );
                         info!(agent = %agent_def.id, "Registered Anthropic agent");
@@ -53,6 +71,23 @@ impl ArenaRunner {
                 }
                 "morphlex" => {
                     warn!(agent = %agent_def.id, "Morphlex agent requires FFI library, skipping for now");
+                }
+                "xai" => {
+                    if let Ok(key) = std::env::var("XAI_API_KEY") {
+                        registry.register(
+                            &agent_def.id,
+                            Box::new(crate::adapters::openai::OpenAIAdapter::with_config(
+                                key,
+                                agent_def.model.clone(),
+                                Some("https://api.x.ai/v1".to_string()),
+                                30_000,
+                                3,
+                            )),
+                        );
+                        info!(agent = %agent_def.id, "Registered xAI agent");
+                    } else {
+                        warn!(agent = %agent_def.id, "XAI_API_KEY not set, skipping agent registration");
+                    }
                 }
                 other => {
                     warn!(backend = %other, "Unknown agent backend, skipping");
