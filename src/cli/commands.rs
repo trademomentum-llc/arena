@@ -204,6 +204,34 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Box::new(MockAdapter::new("mock-validator-1".to_string(), None)),
     );
 
+    // Register a local OpenAI-compatible worker (e.g. Ollama / llama.cpp / MLX server).
+    // Endpoint and model are env-overridable; the API key is a placeholder local
+    // runtimes ignore. Skips registration if the endpoint is non-loopback (NFR-4).
+    {
+        let endpoint = std::env::var("ARENA_LOCAL_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:11434/v1".to_string());
+        let model = std::env::var("ARENA_LOCAL_MODEL")
+            .unwrap_or_else(|_| "qwen2.5-coder:7b".to_string());
+        let allow_remote = std::env::var("ARENA_ALLOW_REMOTE_ENDPOINT").is_ok();
+        match crate::adapters::endpoint::validate_local_endpoint(&endpoint, allow_remote) {
+            Ok(()) => {
+                registry.register(
+                    "qwen-coder-local",
+                    Box::new(OpenAIAdapter::with_config(
+                        std::env::var("ARENA_LOCAL_API_KEY").unwrap_or_else(|_| "local".to_string()),
+                        model,
+                        Some(endpoint),
+                        30_000,
+                        3,
+                    )),
+                );
+            }
+            Err(e) => {
+                eprintln!("Warning: local agent not registered: {}", e);
+            }
+        }
+    }
+
      let orchestrator = ArenaOrchestrator::new(session_manager, Arc::new(registry));
 
     match cli.command {
