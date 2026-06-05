@@ -58,8 +58,8 @@ Specifications (Requirements, Design, Technical) live in
 | Arena core (review engine, adapters, TUI) | Built and runnable (`arena --help` works; no sessions yet). |
 | MX deterministic worker | `libs/libmorphlex.so` present and built. |
 | Dev Integration specs | Drafted (this triad); pending review. |
-| Local-inference core delta | Specified; not yet implemented. |
-| `arenax` wrapper | Specified; not yet implemented. |
+| Local-inference core delta | DONE (M1): base_url, @file/stdin, loopback guard, qwen-coder-local reg, xAI/Grok (XG) adapter support added. |
+| `arenax` wrapper | M2 scaffolded (gitx/arena/review/drift/etc + core cmds + E2E plumbing verified). Full setup/doctor/hooks M3 next. |
 | Version control | To be initialized. |
 
 ## Constraints and Doctrine

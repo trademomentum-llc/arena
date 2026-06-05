@@ -203,10 +203,16 @@ func runDrift(args []string) {
 func runDoctor(args []string) {
 	cfg := mustLoadConfig()
 	fmt.Println("arenax doctor")
-	fmt.Println("Arena bin:", cfg.ArenaBin, "->", checkBin(cfg.ArenaBin))
-	fmt.Println("Local endpoint:", cfg.LocalEndpoint, "->", checkEndpoint(cfg.LocalEndpoint, cfg.AllowRemoteEndpoint))
-	// TODO: more rows per spec (libmorphlex, git, etc)
-	fmt.Println("All basic checks done (expand per full spec).")
+	fmt.Printf("  arena_bin: %s -> %s\n", cfg.ArenaBin, checkBin(cfg.ArenaBin))
+	fmt.Printf("  local_endpoint: %s -> %s\n", cfg.LocalEndpoint, checkEndpoint(cfg.LocalEndpoint, cfg.AllowRemoteEndpoint))
+	// libmorphlex check (optional for MX)
+	if _, err := os.Stat("libs/libmorphlex.so"); err == nil {
+		fmt.Println("  libmorphlex.so -> present")
+	} else {
+		fmt.Println("  libmorphlex.so -> MISSING (MX token count disabled)")
+	}
+	fmt.Println("  git ->", checkBin("git"))
+	fmt.Println("Status: partial (see full spec for complete table). Use --backend local for inference checks.")
 }
 
 func runSetup(args []string) {
