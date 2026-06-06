@@ -3,62 +3,64 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
-	"gopkg.in/yaml.v3"
+	"trademomentum.com/arenax/internal/arena"
 )
 
 // Backend selects the inference workers for a review or drift run.
-type Backend string
+type Backend = arena.Backend
 
+// Consts for the aliased type (so bare names work in switches etc.).
 const (
-	// BackendLocal uses the local qwen-coder-local worker (loopback endpoint, no cost).
-	BackendLocal Backend = "local"
-	// BackendAPI uses hosted API workers (escalation).
-	BackendAPI Backend = "api"
-	// BackendCouncil uses council mode (workers + evaluators + consensus).
+	BackendLocal   Backend = "local"
+	BackendAPI     Backend = "api"
 	BackendCouncil Backend = "council"
 )
 
 // Config holds arenax settings. All fields have safe defaults.
+// This struct and Load are the single exported entry point for the package (per spec guidance).
+// Deterministic: missing file or bad keys -> safe defaults (NFR-2).
 type Config struct {
 	// ArenaBin is the path to the arena executable (resolved on PATH if relative/empty).
-	ArenaBin string `yaml:"arena_bin"`
+	ArenaBin string
 
 	// Backend is the default backend for review/drift commands (overridable by --backend).
-	Backend Backend `yaml:"backend"`
+	Backend Backend
 
 	// LocalEndpoint is the OpenAI-compatible base_url for local mode.
-	LocalEndpoint string `yaml:"local_endpoint"`
+	LocalEndpoint string
 
 	// LocalRuntime documents the runtime (ollama, mlx, lmstudio) for doctor.
-	LocalRuntime string `yaml:"local_runtime"`
+	LocalRuntime string
 
 	// LocalModel is the model tag passed to the local runtime.
-	LocalModel string `yaml:"local_model"`
+	LocalModel string
 
 	// NumCtx is the conservative context window cap (tokens) used to derive byte bound.
-	NumCtx int `yaml:"num_ctx"`
+	NumCtx int
 
 	// KVCacheType for doctor reporting (q4_0 baseline).
-	KVCacheType string `yaml:"kv_cache_type"`
+	KVCacheType string
 
 	// MaxContextBytes is the hard byte cap applied by sizebound before @file write (DSN 9.2).
-	MaxContextBytes int `yaml:"max_context_bytes"`
+	MaxContextBytes int
 
 	// AllowRemoteEndpoint disables the loopback guard for local base_url (NFR-4).
-	AllowRemoteEndpoint bool `yaml:"allow_remote_endpoint"`
+	AllowRemoteEndpoint bool
 
 	// UseMXTokenCount enables the exact token counter stub/hook (FR-12).
-	UseMXTokenCount bool `yaml:"use_mx_token_count"`
+	UseMXTokenCount bool
 
 	// HookMode is "advisory" (never blocks) or "blocking" (council reject blocks).
-	HookMode string `yaml:"hook_mode"`
+	HookMode string
 
 	// CouncilThreshold mirrors arena's auto_approve_threshold for blocking hooks.
-	CouncilThreshold float64 `yaml:"council_threshold"`
+	CouncilThreshold float64
 }
 
-// Default returns the documented defaults (deterministic, no file needed).
+// Default returns the documented defaults (deterministic, no file needed; from TEC 4 + DSN).
 func Default() Config {
 	return Config{
 		ArenaBin:            "arena",
@@ -76,31 +78,92 @@ func Default() Config {
 	}
 }
 
-// Load reads the config file at path (if non-empty and exists). Missing file or
-// empty path yields Default(). Partial files are merged over defaults (absent
-// keys keep their default values because we pre-populate before unmarshal).
+// Load reads optional --config path (or default ~/.config/arenax/config.yaml).
+// Missing file yields defaults (no error). Uses pure stdlib KV parser (C3 determinism, no yaml dep).
 // This is the single exported entry point for the config package.
-func Load(path string) (Config, error) {
-	cfg := Default()
-	if path == "" {
-		// try default user location ~/.config/arenax/config.yaml
+func Load(explicitPath string) (Config, error) {
+	p := explicitPath
+	if p == "" {
 		if dir, err := os.UserConfigDir(); err == nil {
-			path = filepath.Join(dir, "arenax", "config.yaml")
+			p = filepath.Join(dir, "arenax", "config.yaml")
 		} else {
-			return cfg, nil
+			return Default(), nil
 		}
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return cfg, nil
+			return Default(), nil
 		}
-		return cfg, err
+		return Config{}, err
 	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, err
+	kv := parseKV(string(data))
+	return fromKV(kv), nil
+}
+
+// parseKV: pure stdlib parser (from C3 for minimalism + determinism; no external yaml lib).
+func parseKV(s string) map[string]string {
+	m := map[string]string{}
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if i := strings.Index(line, ":"); i > 0 {
+			k := strings.TrimSpace(line[:i])
+			v := strings.TrimSpace(line[i+1:])
+			v = strings.Trim(v, `"' `)
+			m[strings.ToLower(k)] = v
+		}
 	}
-	return cfg, nil
+	return m
+}
+
+func fromKV(m map[string]string) Config {
+	c := Default()
+	if v, ok := m["arena_bin"]; ok && v != "" {
+		c.ArenaBin = v
+	}
+	if v, ok := m["backend"]; ok && v != "" {
+		c.Backend = Backend(v)
+	}
+	if v, ok := m["local_endpoint"]; ok && v != "" {
+		c.LocalEndpoint = v
+	}
+	if v, ok := m["local_runtime"]; ok && v != "" {
+		c.LocalRuntime = v
+	}
+	if v, ok := m["local_model"]; ok && v != "" {
+		c.LocalModel = v
+	}
+	if v, ok := m["num_ctx"]; ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.NumCtx = n
+		}
+	}
+	if v, ok := m["kv_cache_type"]; ok && v != "" {
+		c.KVCacheType = v
+	}
+	if v, ok := m["max_context_bytes"]; ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxContextBytes = n
+		}
+	}
+	if v, ok := m["allow_remote_endpoint"]; ok {
+		c.AllowRemoteEndpoint = strings.ToLower(v) == "true"
+	}
+	if v, ok := m["use_mx_token_count"]; ok {
+		c.UseMXTokenCount = strings.ToLower(v) == "true"
+	}
+	if v, ok := m["hook_mode"]; ok && v != "" {
+		c.HookMode = v
+	}
+	if v, ok := m["council_threshold"]; ok && v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.CouncilThreshold = f
+		}
+	}
+	return c
 }
 
 // BackendFromString normalizes a --backend flag value.

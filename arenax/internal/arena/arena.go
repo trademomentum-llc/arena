@@ -54,6 +54,44 @@ var (
 	ErrNoImpls       = errors.New("no implementation files after classification")
 )
 
+// Backend (C3) + pure Build* helpers (for determinism, testability, NFR-5 argv safety).
+type Backend string
+
+const (
+	BackendLocal   Backend = "local"
+	BackendAPI     Backend = "api"
+	BackendCouncil Backend = "council"
+	BackendMock    Backend = "mock"
+)
+
+func BuildCreateArgv(spec SessionSpec, contextRef string) []string {
+	workers := strings.Join(spec.Workers, ",")
+	if workers == "" {
+		workers = "qwen-coder-local"
+	}
+	mode := spec.Mode
+	if mode == "" {
+		mode = "human-in-loop"
+	}
+	return []string{"create", "--session-type", spec.Type, "--task", spec.Task, "--workers", workers, "--mode", mode, "-x", contextRef}
+}
+
+func BuildRunArgv(uuid string) []string { return []string{"run", "--session-id", uuid} }
+
+func BuildDriftCheckArgv(specs, impls []string, agent string) []string {
+	return []string{"drift-check", "--specs", strings.Join(specs, ","), "--impls", strings.Join(impls, ","), "--agent", agent}
+}
+
+func ResolveWorkers(b Backend) []string {
+	switch b {
+	case BackendLocal: return []string{"qwen-coder-local"}
+	case BackendAPI: return []string{"gpt-4-turbo", "claude-3-sonnet"}
+	case BackendCouncil: return []string{"gpt-4-turbo", "claude-3-sonnet"}
+	case BackendMock: return []string{"mock-reviewer-1", "mock-reviewer-2"}
+	default: return []string{"qwen-coder-local"}
+	}
+}
+
 // ExtractUUID parses the literal marker from arena create (or finalize) stdout.
 // It matches lines starting exactly with the documented prefix and validates
 // as RFC4122-ish UUID. This is the single exported entry for UUID parsing.
