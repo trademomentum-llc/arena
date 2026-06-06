@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -405,22 +406,81 @@ func handleDoctor(cfg config.Config) {
 		checks = append(checks, check{"git", "PASS", strings.TrimSpace(string(out))})
 	}
 
-	// local endpoint (probe only if local backend, short timeout, tolerate down for SKIP? but per AC want PASS when good)
+	// local endpoint (real probe: tiny chat completion so we detect broken inference engines)
 	ep := cfg.LocalEndpoint
 	if cfg.Backend == config.BackendLocal || backendStr == "local" || backendStr == "" {
 		status := "PASS"
 		detail := ep
 		if u, err := url.Parse(ep); err == nil && (u.Hostname() == "localhost" || strings.HasPrefix(u.Hostname(), "127.") || u.Hostname() == "::1") {
-			// try http get with short timeout (may be / or /v1/models for ollama compat)
-			client := &http.Client{Timeout: 800 * time.Millisecond}
+			// Real probe: tiny chat completion. Plain GET can succeed even when
+			// the inference engine (llama-server etc) is missing.
+			client := &http.Client{Timeout: 1500 * time.Millisecond}
+
 			resp, err := client.Get(ep)
 			if err != nil || (resp != nil && resp.StatusCode >= 500) {
-				// not fatal for doctor if runtime not up; but AC says PASS when good
 				status = "SKIP"
-				detail = ep + " (unreachable now; start your ollama/mlx)"
-			} else if resp != nil {
-				resp.Body.Close()
-				detail = ep + " (reachable)"
+				detail = ep + " (unreachable; start ollama/mlx)"
+				if resp != nil {
+					resp.Body.Close()
+				}
+			} else {
+				if resp != nil {
+					resp.Body.Close()
+				}
+
+				// Actual inference probe.
+				chatURL := strings.TrimSuffix(ep, "/") + "/chat/completions"
+
+				// Use json.Marshal to safely serialize and avoid injection from cfg.LocalModel
+				probeReq := map[string]any{
+					"model": cfg.LocalModel,
+					"messages": []map[string]string{
+						{"role": "user", "content": "hi"},
+					},
+					"max_tokens": 5,
+					"temperature": 0,
+				}
+				body, jerr := json.Marshal(probeReq)
+				if jerr != nil {
+					fmt.Printf("failed to marshal doctor probe body: %v\n", jerr)
+					status = "SKIP"
+					detail = ep + " (probe marshal failed)"
+				} else {
+					req, rerr := http.NewRequest("POST", chatURL, bytes.NewReader(body))
+					if rerr != nil {
+						fmt.Printf("failed to create doctor probe request: %v\n", rerr)
+						status = "SKIP"
+						detail = ep + " (probe request creation failed)"
+					} else {
+						req.Header.Set("Content-Type", "application/json")
+
+						cresp, cerr := client.Do(req)
+						if cerr != nil || (cresp != nil && cresp.StatusCode >= 500) {
+							status = "SKIP"
+							detail = ep + " (listening but inference failed)"
+							if cresp != nil {
+								cresp.Body.Close()
+							}
+						} else if cresp != nil {
+							defer cresp.Body.Close()
+							buf := make([]byte, 512)
+							n, readErr := cresp.Body.Read(buf)
+							if readErr != nil && readErr.Error() != "EOF" {
+								fmt.Printf("doctor probe body read error: %v\n", readErr)
+							}
+							bodyStr := string(buf[:n])
+
+							if strings.Contains(bodyStr, "llama-server") || strings.Contains(bodyStr, "binary not found") {
+								status = "SKIP"
+								detail = ep + " (ollama listening but llama-server missing — use official Ollama.app)"
+							} else if cresp.StatusCode == 200 && strings.Contains(bodyStr, "choices") {
+								detail = ep + " (reachable + responding)"
+							} else {
+								detail = ep + " (reachable, probe " + cresp.Status + ")"
+							}
+						}
+					}
+				}
 			}
 		} else if !cfg.AllowRemoteEndpoint {
 			status = "FAIL"
