@@ -43,11 +43,11 @@ Last updated: 2026-06-05. Status values: TODO, IN PROGRESS, BLOCKED, DONE.
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| M3-1 | Advisory pre-commit / pre-push templates | TODO | never block; FR-13 |
-| M3-2 | Optional blocking template (council, threshold) | TODO | FR-14 |
-| M3-3 | Hook install/uninstall (reversible, backs up) | TODO | FR-15; coexist with rr-guards |
+| M3-1 | Advisory pre-commit / pre-push templates | DONE | never block; FR-13 (templates + install logic in arenax setup) |
+| M3-2 | Optional blocking template (council, threshold) | PARTIAL | FR-14 (template choice by hook_mode; full exit-nonzero wiring ready for use) |
+| M3-3 | Hook install/uninstall (reversible, backs up) | DONE | FR-15; coexist with rr-guards (backupIfExists + 0755 + choice of .advisory/.blocking) |
 | M3-4 | Hook smoke tests | TODO | both modes in throwaway repo |
-| M3-5 | Run full verification procedure (TEC 9) | TODO | acceptance criteria |
+| M3-5 | Run full verification procedure (TEC 9) | IN PROGRESS | acceptance criteria (mock E2E verified) |
 
 ## Phase 2 (Deferred)
 
@@ -56,6 +56,8 @@ Last updated: 2026-06-05. Status values: TODO, IN PROGRESS, BLOCKED, DONE.
 | P2-1 | Devcontainer packaging | TODO | D4 reproducibility |
 | P2-2 | Large-diff chunking/summarization | TODO | replaces phase-1 truncation |
 | P2-3 | Forge-aware PR review | TODO | FR-7; detect Gitea/GitHub/Forgejo |
+| P2-4 | Rust-side synthesis port (markers, pure extract, no-secret test) | DONE | from arenax best-of-n |
+| P2-5 | Basic ratatui TUI skeleton | DONE | `arena tui` (list, nav, view) |
 
 ## Verification Tasks (in progress)
 

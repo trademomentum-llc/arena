@@ -584,29 +584,9 @@ async fn post_review_comments(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::session_store::MemSessionStore;
 
     fn test_config() -> ArenaConfig {
         ArenaConfig::default()
-    }
-
-    fn test_registry() -> AgentRegistry {
-        let mut registry = AgentRegistry::new();
-        registry.register(
-            "gpt-4-turbo",
-            Box::new(crate::adapters::openai::OpenAIAdapter::new(
-                "test-key".to_string(),
-                "gpt-4-turbo".to_string(),
-            )),
-        );
-        registry.register(
-            "claude-3-sonnet",
-            Box::new(crate::adapters::anthropic::AnthropicAdapter::new(
-                "test-key".to_string(),
-                "claude-3-sonnet-20240229".to_string(),
-            )),
-        );
-        registry
     }
 
     fn test_pr_event() -> ForgejoPREvent {

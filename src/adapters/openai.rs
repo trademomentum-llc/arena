@@ -25,6 +25,8 @@ impl OpenAIAdapter {
             "gpt-4o-mini" | "gpt-4o-mini-2024-07-18" => (0.00015, 0.0006),
             "o1" | "o1-preview" => (0.015, 0.06),
             "o1-mini" => (0.003, 0.012),
+            m if m.contains("grok-3") => (0.003, 0.015),
+            m if m.contains("grok-2") => (0.002, 0.010),
             _ => (0.01, 0.03),
         };
 
@@ -54,6 +56,8 @@ impl OpenAIAdapter {
             "gpt-4o-mini" | "gpt-4o-mini-2024-07-18" => (0.00015, 0.0006),
             "o1" | "o1-preview" => (0.015, 0.06),
             "o1-mini" => (0.003, 0.012),
+            m if m.contains("grok-3") => (0.003, 0.015),
+            m if m.contains("grok-2") => (0.002, 0.010),
             _ => (0.01, 0.03), // Default to GPT-4 pricing
         };
 

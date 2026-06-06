@@ -76,13 +76,7 @@ impl ArenaRunner {
                     if let Ok(key) = std::env::var("XAI_API_KEY") {
                         registry.register(
                             &agent_def.id,
-                            Box::new(crate::adapters::openai::OpenAIAdapter::with_config(
-                                key,
-                                agent_def.model.clone(),
-                                Some("https://api.x.ai/v1".to_string()),
-                                30_000,
-                                3,
-                            )),
+                            Box::new(crate::adapters::new_xai_adapter(key, agent_def.model.clone())),
                         );
                         info!(agent = %agent_def.id, "Registered xAI agent");
                     } else {

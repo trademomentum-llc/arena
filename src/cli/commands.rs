@@ -8,6 +8,45 @@ use crate::arena::*;
 use crate::metrics::ArenaMetrics;
 use std::sync::Arc;
 
+/// Exact output markers that external tools (e.g. arenax Go wrapper) depend on.
+/// These are synchronized with the M2 synthesis for stable CLI contract (NFR-9).
+pub const SESSION_CREATED_PREFIX: &str = "Session created: ";
+pub const SESSION_FINALIZED_PREFIX: &str = "Session finalized: ";
+pub const NO_DRIFT_MESSAGE: &str = "No drift detected. Implementations match specs.";
+pub const DRIFT_FINDINGS_PREFIX: &str = "Drift findings (";
+
+/// Pure extraction of session ID from arena output (C3-style determinism ported back).
+/// Mirrors arenax ExtractUUID for contract fidelity.
+pub fn extract_session_id(output: &str) -> Option<String> {
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix(SESSION_CREATED_PREFIX) {
+            let cand = rest.trim();
+            if is_rfc4122_uuid(cand) {
+                return Some(cand.to_string());
+            }
+        }
+        if let Some(rest) = trimmed.strip_prefix(SESSION_FINALIZED_PREFIX) {
+            let cand = rest.trim();
+            if is_rfc4122_uuid(cand) {
+                return Some(cand.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn is_rfc4122_uuid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 5 { return false; }
+    let lens = [8usize, 4, 4, 4, 12];
+    for (i, p) in parts.iter().enumerate() {
+        if p.len() != lens[i] { return false; }
+        if !p.chars().all(|c| c.is_ascii_hexdigit()) { return false; }
+    }
+    true
+}
+
 #[derive(Parser)]
 #[command(name = "arena")]
 #[command(about = "Multi-agent arena system for checks and balances in development")]
@@ -124,6 +163,9 @@ pub enum Commands {
         #[arg(short, long)]
         session_id: String,
     },
+
+    /// Launch basic TUI (ratatui skeleton) for session list/view
+    Tui,
 }
 
 pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -298,7 +340,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
             let id = session.id;
             orchestrator.session_manager().create_session(session)?;
-            println!("Session created: {}", id);
+            println!("{}{}", SESSION_CREATED_PREFIX, id);
             println!("Use 'arena run --session-id {}' to dispatch tasks", id);
         }
 
@@ -458,7 +500,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let session = orchestrator.finalize(&id, human_decision)?;
-            println!("Session finalized: {}", id);
+            println!("{}{}", SESSION_FINALIZED_PREFIX, id);
             println!("Decision: {:?}", session.human_decision.as_ref().unwrap().decision);
         }
 
@@ -487,7 +529,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let findings = detector.detect_drift(&spec_paths, &impl_paths).await?;
 
             if findings.is_empty() {
-                println!("\nNo drift detected. Implementations match specs.");
+                println!("\n{}", NO_DRIFT_MESSAGE);
             } else {
                 println!("\nDrift findings ({}):", findings.len());
                 for finding in &findings {
@@ -524,6 +566,10 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 println!("{}", eval.reasoning);
             }
+        }
+
+        Commands::Tui => {
+            run_tui_skeleton()?;
         }
     }
 
@@ -669,6 +715,137 @@ fn build_system_prompt(session_type: &SessionType) -> String {
     }
 }
 
+/// Very basic ratatui TUI skeleton (as requested).
+/// Launch with `arena tui`.
+/// Navigation: arrows, r=refresh, v/enter=print details, q/esc=quit.
+/// Uses default store path (overridable via -s or ARENA_STORE env).
+fn run_tui_skeleton() -> Result<(), Box<dyn std::error::Error>> {
+    // Minimal implementation to avoid pulling full ratatui complexity into every build path
+    // while still providing a working skeleton. In real use, `cargo run -- tui` will exercise it.
+    // For a richer version, expand the List + Paragraph layout below.
+
+    use crossterm::{
+        event::{self, Event, KeyCode, KeyEventKind},
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    };
+    use ratatui::{
+        backend::CrosstermBackend,
+        layout::{Constraint, Direction, Layout},
+        style::{Modifier, Style},
+        text::Span,
+        widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+        Terminal,
+    };
+
+    enable_raw_mode()?;
+    let mut stdout = std::io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let store_path = std::env::var("ARENA_STORE").unwrap_or_else(|_| "./arena-sessions".to_string());
+    let mut sessions: Vec<ArenaSession> = vec![];
+    let mut list_state = ListState::default();
+    list_state.select(Some(0));
+    let mut should_quit = false;
+
+    while !should_quit {
+        // best-effort reload
+        if let Ok(store) = FileSessionStore::new(&store_path) {
+            if let Ok(list) = store.list_sessions() {
+                sessions = list;
+            }
+        }
+
+        terminal.draw(|f| {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                .split(f.size());
+
+            let items: Vec<ListItem> = sessions.iter().map(|s| {
+                let label = format!("{} | {:?} | w={}", s.id, s.phase, s.worker_agents.len());
+                ListItem::new(Span::raw(label))
+            }).collect();
+
+            let list = List::new(items)
+                .block(Block::default().title("arena tui (arrows, r refresh, v view, q quit)").borders(Borders::ALL))
+                .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+
+            f.render_stateful_widget(list, chunks[0], &mut list_state);
+
+            let detail = if let Some(i) = list_state.selected() {
+                if let Some(s) = sessions.get(i) {
+                    format!("ID: {}\nPhase: {:?}\nMode: {:?}\nTask: {}\nResponses: {}  Consistency: {:?}",
+                        s.id, s.phase, s.mode, s.task.description, s.responses.len(), s.consistency_score)
+                } else { "select a session".to_string() }
+            } else { "no selection".to_string() };
+
+            let p = Paragraph::new(detail).block(Block::default().title("Details").borders(Borders::ALL));
+            f.render_widget(p, chunks[1]);
+        })?;
+
+        if event::poll(std::time::Duration::from_millis(150))? {
+            if let Event::Key(k) = event::read()? {
+                if k.kind == KeyEventKind::Press {
+                    match k.code {
+                        KeyCode::Char('q') | KeyCode::Esc => should_quit = true,
+                        KeyCode::Char('r') => {},
+                        KeyCode::Up => if let Some(i) = list_state.selected() { if i > 0 { list_state.select(Some(i-1)); } },
+                        KeyCode::Down => {
+                            let i = list_state.selected().unwrap_or(0);
+                            if i + 1 < sessions.len() { list_state.select(Some(i+1)); }
+                        }
+                        KeyCode::Char('v') | KeyCode::Enter => {
+                            if let Some(i) = list_state.selected() {
+                                if let Some(s) = sessions.get(i) {
+                                    println!("\n[TUI] Selected:\n{:#?}\n", s);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_session_id_exact_markers() {
+        let out = "Session created: 123e4567-e89b-12d3-a456-426614174000\nUse 'arena run ...'";
+        assert_eq!(extract_session_id(out), Some("123e4567-e89b-12d3-a456-426614174000".to_string()));
+
+        let fin = "Session finalized: 123e4567-e89b-12d3-a456-426614174000\nDecision: Approve";
+        assert_eq!(extract_session_id(fin), Some("123e4567-e89b-12d3-a456-426614174000".to_string()));
+    }
+
+    #[test]
+    fn test_extract_session_id_no_secret_leak_in_markers() {
+        // Mirrors C3's TestBuildArgv_noSecret spirit: markers themselves never contain secret material
+        let secretish = "Session created: sk-1234567890abcdef-ghp_xxx";
+        // The parser should still only accept valid UUIDs after the prefix
+        assert_eq!(extract_session_id(secretish), None);
+    }
+
+    #[test]
+    fn test_rfc4122_uuid() {
+        assert!(is_rfc4122_uuid("123e4567-e89b-12d3-a456-426614174000"));
+        assert!(!is_rfc4122_uuid("not-a-uuid"));
+        assert!(!is_rfc4122_uuid("123e4567-e89b-12d3-a456-42661417400")); // short
+    }
+}
+
 fn create_adapter_for_agent(
     agent_id: &str,
 ) -> Result<Box<dyn AgentAdapter>, Box<dyn std::error::Error>> {
@@ -691,13 +868,8 @@ fn create_adapter_for_agent(
         "xai" => {
             let key = std::env::var("XAI_API_KEY")
                 .map_err(|_| "XAI_API_KEY not set")?;
-            Ok(Box::new(OpenAIAdapter::with_config(
-                key,
-                agent_id.to_string(),
-                Some("https://api.x.ai/v1".to_string()),
-                30_000,
-                3,
-            )))
+            // Use dedicated thin wrapper for clarity (polish from synthesis).
+            Ok(Box::new(crate::adapters::new_xai_adapter(key, agent_id.to_string())))
         }
         _ => Err(format!("Unknown backend for agent: {}", agent_id).into()),
     }

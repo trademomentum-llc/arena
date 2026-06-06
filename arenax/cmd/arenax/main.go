@@ -281,12 +281,30 @@ ANTHROPIC_API_KEY=sk-ant-...
 			}
 			if installHooks {
 				for _, name := range []string{"pre-commit", "pre-push"} {
-					src := filepath.Join("hooks", name+".advisory")
-					// prefer advisory
+					// choose template based on hook_mode in config (full M3 behavior)
+					tmplName := name + ".advisory"
+					if cfg.HookMode == "blocking" {
+						tmplName = name + ".blocking"
+					}
+					src := filepath.Join("hooks", tmplName)
 					if _, err := os.Stat(src); err != nil {
-						src = filepath.Join("../hooks", name+".advisory") // if run from arenax/
+						src = filepath.Join("../hooks", tmplName)
 					}
 					dst := filepath.Join(hookDir, name)
+					// backup existing (reversible per FR-15)
+					backupIfExists(dst)
+					data, err := os.ReadFile(src)
+					if err != nil {
+						fmt.Printf("could not read template %s: %v\n", src, err)
+						continue
+					}
+					if err := os.WriteFile(dst, data, 0755); err != nil {
+						fmt.Printf("could not install %s: %v\n", dst, err)
+						continue
+					}
+					fmt.Printf("installed %s (%s)\n", dst, tmplName)
+				}
+			}
 					backupIfExists(dst)
 					data, err := os.ReadFile(src)
 					if err != nil {

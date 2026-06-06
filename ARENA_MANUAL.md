@@ -38,7 +38,7 @@ arena create --session-type <TYPE> --task <DESCRIPTION> [OPTIONS]
 - `GG` = Google Gemini
 - `QQ` = QwenAI Qwen-Coder
 - `PP` = PerplexityAI Perplexity
-- `XG` = X.AI Grok
+- `XG` / `xai` / `grok` = X.AI Grok (uses `XAI_API_KEY`, OpenAI-compatible at api.x.ai)
 - `MK` = MoonshotAi Kimi
 - `ML` = Meta Llama
 - `HD` = Hangzhou DeepSeek

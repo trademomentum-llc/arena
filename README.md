@@ -101,6 +101,7 @@ arena council      Run council evaluation
 |---|---|---|
 | OpenAI | gpt-4-turbo, gpt-4o, gpt-4o-mini, o1 | `OPENAI_API_KEY` |
 | Anthropic | claude-3-opus, claude-3-sonnet, claude-3-haiku | `ANTHROPIC_API_KEY` |
+| xAI (Grok) | grok-3, grok-2 (XG / xai / grok short codes) | `XAI_API_KEY` |
 | Morphlex | morphlex-local (in-house ONNX) | Compile from trademomentum-llc/apps |
 
 ## Metrics
