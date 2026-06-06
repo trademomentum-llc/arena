@@ -21,7 +21,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
 futures = "0.3"
-sha2 = "0.10"
+sha2 = "0.11"
 anyhow = "1.0"
 # TUI stack is pinned to exact versions because ratatui and crossterm
 # are tightly coupled (ratatui re-exports and depends on specific crossterm features).
