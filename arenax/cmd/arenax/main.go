@@ -286,16 +286,13 @@ ANTHROPIC_API_KEY=sk-ant-...
 					if cfg.HookMode == "blocking" {
 						tmplName = name + ".blocking"
 					}
-					src := filepath.Join("hooks", tmplName)
-					if _, err := os.Stat(src); err != nil {
-						src = filepath.Join("../hooks", tmplName)
-					}
 					dst := filepath.Join(hookDir, name)
 					// backup existing (reversible per FR-15)
 					backupIfExists(dst)
-					data, err := os.ReadFile(src)
+
+					data, err := findHookTemplate(tmplName)
 					if err != nil {
-						fmt.Printf("could not read template %s: %v\n", src, err)
+						fmt.Printf("could not find hook template %s: %v\n", tmplName, err)
 						continue
 					}
 					if err := os.WriteFile(dst, data, 0755); err != nil {
@@ -303,19 +300,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 						continue
 					}
 					fmt.Printf("installed %s (%s)\n", dst, tmplName)
-				}
-			}
-					backupIfExists(dst)
-					data, err := os.ReadFile(src)
-					if err != nil {
-						// fallback inline template
-						data = []byte(defaultAdvisoryHook(name))
-					}
-					if err := os.WriteFile(dst, data, 0755); err != nil {
-						fmt.Printf("hook write fail %s: %v\n", dst, err)
-					} else {
-						fmt.Printf("installed advisory hook %s (exits 0 always)\n", dst)
-					}
 				}
 			}
 		}
@@ -334,6 +318,35 @@ func backupIfExists(p string) {
 		_ = os.Rename(p, bak)
 		fmt.Printf("backed up existing %s -> %s\n", p, bak)
 	}
+}
+
+// findHookTemplate tries several locations so that `arenax setup --install-hooks`
+// works whether you run it from the repo root, from inside arenax/, or from
+// a bin/ directory next to the source tree.
+func findHookTemplate(tmplName string) ([]byte, error) {
+	candidates := []string{
+		filepath.Join("arenax", "hooks", tmplName), // run from repo root
+		filepath.Join("hooks", tmplName),           // run from inside arenax/ dir
+	}
+
+	// Also look relative to where the arenax binary lives
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "hooks", tmplName),
+			filepath.Join(exeDir, "..", "arenax", "hooks", tmplName),
+			filepath.Join(exeDir, "..", "hooks", tmplName),
+		)
+	}
+
+	for _, p := range candidates {
+		if data, err := os.ReadFile(p); err == nil {
+			return data, nil
+		}
+	}
+
+	// Last resort: use the built-in default (advisory only)
+	return []byte(defaultAdvisoryHook(strings.TrimSuffix(tmplName, ".advisory"))), nil
 }
 
 func defaultAdvisoryHook(name string) string {
