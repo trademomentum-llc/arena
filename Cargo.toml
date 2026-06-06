@@ -23,8 +23,13 @@ async-trait = "0.1"
 futures = "0.3"
 sha2 = "0.10"
 anyhow = "1.0"
-crossterm = "0.28"
-ratatui = "0.29"
+# TUI stack is pinned to exact versions because ratatui and crossterm
+# are tightly coupled (ratatui re-exports and depends on specific crossterm features).
+# Dependabot is configured to group these two so they are always updated together.
+# Major version bumps should be reviewed carefully due to potential breaking changes
+# in terminal rendering, event handling, and widget APIs.
+crossterm = "0.28.1"
+ratatui = "0.29.0"
 libloading = "0.8"
 libc = "0.2"
 

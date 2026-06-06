@@ -1,0 +1,59 @@
+version: 2
+updates:
+  # Rust / Cargo dependencies (main arena crate + TUI)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    # Groups keep related updates together (especially important for the TUI stack,
+    # which can have subtle terminal/ rendering behavior changes).
+    groups:
+      tui:
+        patterns:
+          - "ratatui"
+          - "crossterm"
+        update-types:
+          - "minor"
+          - "patch"
+      # Batch low-risk minor/patch updates to reduce PR noise
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Go module for the arenax wrapper (currently very minimal / mostly stdlib)
+  - package-ecosystem: "gomod"
+    directory: "/arenax"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+
+  # GitHub Actions (future-proofing)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions:
+        patterns:
+          - "*"
