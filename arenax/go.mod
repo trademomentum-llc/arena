@@ -1,3 +1,3 @@
 module trademomentum.com/arenax
 
-go 1.22
+go 1.23

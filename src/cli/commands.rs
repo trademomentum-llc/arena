@@ -762,7 +762,7 @@ fn run_tui_skeleton() -> Result<(), Box<dyn std::error::Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
-                .split(f.size());
+                .split(f.area());
 
             let items: Vec<ListItem> = sessions.iter().map(|s| {
                 let label = format!("{} | {:?} | w={}", s.id, s.phase, s.worker_agents.len());

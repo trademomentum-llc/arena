@@ -155,15 +155,18 @@ mod tests {
 
     #[test]
     fn agentdef_base_url_defaults_none_and_parses_some() {
-        // Absent in YAML -> None (serde default)
-        let yaml_no_url = "id: a\nbackend: openai\nmodel: m\ntier: worker\n";
-        let a: AgentDef = serde_yaml::from_str(yaml_no_url).unwrap();
+        // Use serde_json (already a dependency) to prove #[serde(default)] behavior
+        // for the new base_url / api_key_env fields (no unmaintained serde_yaml).
+
+        // Absent fields -> None (serde default)
+        let json_no_fields = r#"{"id":"a","backend":"openai","model":"m","tier":"worker"}"#;
+        let a: AgentDef = serde_json::from_str(json_no_fields).unwrap();
         assert_eq!(a.base_url, None);
         assert_eq!(a.api_key_env, None);
 
-        // Present in YAML -> Some
-        let yaml_url = "id: b\nbackend: openai\nmodel: m\ntier: worker\nbase_url: http://localhost:11434/v1\napi_key_env: LOCAL_API_KEY\n";
-        let b: AgentDef = serde_yaml::from_str(yaml_url).unwrap();
+        // Present fields -> Some
+        let json_with_fields = r#"{"id":"b","backend":"openai","model":"m","tier":"worker","base_url":"http://localhost:11434/v1","api_key_env":"LOCAL_API_KEY"}"#;
+        let b: AgentDef = serde_json::from_str(json_with_fields).unwrap();
         assert_eq!(b.base_url.as_deref(), Some("http://localhost:11434/v1"));
         assert_eq!(b.api_key_env.as_deref(), Some("LOCAL_API_KEY"));
     }
