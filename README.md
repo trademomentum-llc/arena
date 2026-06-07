@@ -6,19 +6,19 @@ Multi-agent arena for checks and balances in development. Orchestrates multiple 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     CLI / TUI Interface                      │
+│                     CLI / TUI Interface                     │
 ├─────────────────────────────────────────────────────────────┤
-│                    Arena Orchestrator                         │
-│  ┌───────────┐  ┌────────────┐  ┌──────────────────────────┐ │
-│  │ Session   │  │ Consensus  │  │  Drift Detector           │ │
-│  │ Manager   │  │ Engine     │  │  (spec vs impl check)     │ │
-│  └───────────┘  └────────────┘  └──────────────────────────┘ │
+│                    Arena Orchestrator                       │
+│ ┌───────────┐  ┌────────────┐  ┌──────────────────────────┐ │
+│ │ Session   │  │ Consensus  │  │  Drift Detector          │ │
+│ │ Manager   │  │ Engine     │  │  (spec vs impl check)    │ │
+│ └───────────┘  └────────────┘  └──────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                    Agent Adapter Layer                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐  │
-│  │ Morphlex │  │ OpenAI   │  │Anthropic │  │ Future     │  │
-│  │ (ONNX)   │  │ (GPT-4)  │  │ (Claude) │  │ Adapters   │  │
-│  └──────────┘  └──────────┘  └──────────┘  └────────────┘  │
+│                    Agent Adapter Layer                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐   │
+│  │ Morphlex │  │ OpenAI   │  │Anthropic │  │ Future     │   │
+│  │ (ONNX)   │  │ (GPT-4)  │  │ (Claude) │  │ Adapters   │   │
+│  └──────────┘  └──────────┘  └──────────┘  └────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
