@@ -30,7 +30,7 @@ anyhow = "1.0"
 # in terminal rendering, event handling, and widget APIs.
 crossterm = "0.28.1"
 ratatui = "0.29.0"
-libloading = "0.8"
+libloading = "0.9"
 libc = "0.2"
 
 [dev-dependencies]
