@@ -28,7 +28,7 @@ anyhow = "1.0"
 # Dependabot is configured to group these two so they are always updated together.
 # Major version bumps should be reviewed carefully due to potential breaking changes
 # in terminal rendering, event handling, and widget APIs.
-crossterm = "0.28.1"
+crossterm = "0.29.0"
 ratatui = "0.29.0"
 libloading = "0.9"
 libc = "0.2"
