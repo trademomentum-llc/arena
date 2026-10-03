@@ -72,7 +72,7 @@ async fn main() {
     };
     
     let session_id = session.id;
-    println!("Created session with ID: {}", session_id);
+    println!("Created session with ID: [redacted-session]");
     
     // Create the session
     orchestrator.session_manager().create_session(session.clone()).expect("Failed to create session");

@@ -2,6 +2,7 @@ package arena
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -46,12 +47,12 @@ type Client struct {
 
 // Err* are the typed sentinel errors per DSN 7.
 var (
-	ErrArenaMissing  = errors.New("arena binary not found on PATH")
-	ErrEndpointDown  = errors.New("local endpoint unreachable")
-	ErrNoChanges     = errors.New("no changes to review")
-	ErrSessionParse  = errors.New("failed to parse session id from arena output")
-	ErrArenaNonZero  = errors.New("arena exited non-zero")
-	ErrNoImpls       = errors.New("no implementation files after classification")
+	ErrArenaMissing = errors.New("arena binary not found on PATH")
+	ErrEndpointDown = errors.New("local endpoint unreachable")
+	ErrNoChanges    = errors.New("no changes to review")
+	ErrSessionParse = errors.New("failed to parse session id from arena output")
+	ErrArenaNonZero = errors.New("arena exited non-zero")
+	ErrNoImpls      = errors.New("no implementation files after classification")
 )
 
 // Backend (C3) + pure Build* helpers (for determinism, testability, NFR-5 argv safety).
@@ -84,17 +85,24 @@ func BuildDriftCheckArgv(specs, impls []string, agent string) []string {
 
 func ResolveWorkers(b Backend) []string {
 	switch b {
-	case BackendLocal: return []string{"qwen-coder-local"}
-	case BackendAPI: return []string{"gpt-4-turbo", "claude-3-sonnet"}
-	case BackendCouncil: return []string{"gpt-4-turbo", "claude-3-sonnet"}
-	case BackendMock: return []string{"mock-reviewer-1", "mock-reviewer-2"}
-	default: return []string{"qwen-coder-local"}
+	case BackendLocal:
+		return []string{"qwen-coder-local"}
+	case BackendAPI:
+		return []string{"gpt-4-turbo", "claude-3-sonnet"}
+	case BackendCouncil:
+		return []string{"gpt-4-turbo", "claude-3-sonnet"}
+	case BackendMock:
+		return []string{"mock-reviewer-1", "mock-reviewer-2"}
+	default:
+		return []string{"qwen-coder-local"}
 	}
 }
 
-// ExtractUUID parses the literal marker from arena create (or finalize) stdout.
-// It matches lines starting exactly with the documented prefix and validates
-// as RFC4122-ish UUID. This is the single exported entry for UUID parsing.
+// ExtractUUID parses the literal marker from arena create stdout.
+// It matches lines starting exactly with "Session created: " and validates
+// as RFC4122-ish UUID. Finalize must not be recovered from a log line that
+// contains the session id; use SessionIDFromRecord on the structured field
+// (the id returned by arena and stored on the session).
 // Must match the contract in arena/src/cli/commands.rs .
 //
 // Usage example:
@@ -109,17 +117,30 @@ func ExtractUUID(stdout string) (string, error) {
 			if isRFC4122(cand) {
 				return cand, nil
 			}
-			// also support finalize marker for symmetry in tests
-			// but primary is created
 		}
-		if strings.HasPrefix(line, "Session finalized: ") {
-			cand := strings.TrimSpace(line[len("Session finalized: "):])
-			if isRFC4122(cand) {
-				return cand, nil
-			}
-		}
+		// "Session finalized: <uuid>" is intentionally not a source. That line
+		// was a cleartext log of the secret.
 	}
 	return "", fmt.Errorf("%w: no valid UUID after marker in stdout", ErrSessionParse)
+}
+
+// SessionRecord is the structured session identity, not a log line.
+type SessionRecord struct {
+	SessionID string `json:"session_id"`
+}
+
+// SessionIDFromRecord returns the session id from a structured field.
+// Callers that already hold the value returned by arena (or the stored
+// session) pass it here instead of scraping a log line.
+func SessionIDFromRecord(raw []byte) (string, error) {
+	var rec SessionRecord
+	if err := json.Unmarshal(raw, &rec); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrSessionParse, err)
+	}
+	if !isRFC4122(rec.SessionID) {
+		return "", fmt.Errorf("%w: session_id field is not a UUID", ErrSessionParse)
+	}
+	return rec.SessionID, nil
 }
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
