@@ -58,7 +58,7 @@ fn main() {
     };
     
     let session_id = session.id;
-    println!("Created session with ID: {}", session_id);
+    println!("Created session with ID: [redacted-session]");
     
     // Try to create the session
     println!("Attempting to create session in storage...");

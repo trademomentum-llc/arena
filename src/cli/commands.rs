@@ -15,6 +15,10 @@ pub const SESSION_FINALIZED_PREFIX: &str = "Session finalized: ";
 pub const NO_DRIFT_MESSAGE: &str = "No drift detected. Implementations match specs.";
 pub const DRIFT_FINDINGS_PREFIX: &str = "Drift findings (";
 
+/// Marker written to stdout/stderr in place of a session identifier.
+/// Session ids authorize later CLI calls and must not be logged.
+pub const REDACTED_SESSION: &str = "[redacted-session]";
+
 /// Pure extraction of session ID from arena output (C3-style determinism ported back).
 /// Mirrors arenax ExtractUUID for contract fidelity.
 pub fn extract_session_id(output: &str) -> Option<String> {
@@ -348,7 +352,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let id = parse_uuid(&session_id)?;
             let session = orchestrator.session_manager().get_session(&id)?;
 
-            println!("Running session: {}", id);
+            println!("Running session: {REDACTED_SESSION}");
             println!("Mode: {:?}", session.mode);
             println!("Workers: {}", session.worker_agents.len());
 
@@ -405,7 +409,7 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 SessionPhase::AwaitingHuman => {
                     println!("\nAwaiting human decision...");
-                    println!("Use 'arena finalize --session-id {} --decision approve --reasoning \"...\"'", id);
+                    println!("Use 'arena finalize --session-id {REDACTED_SESSION} --decision approve --reasoning \"...\"'");
                 }
                 _ => {}
             }
@@ -500,14 +504,16 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let session = orchestrator.finalize(&id, human_decision)?;
-            println!("{}{}", SESSION_FINALIZED_PREFIX, id);
+            // Contract marker parsed by arenax ExtractUUID. Print the stored session id,
+            // not a diagnostic dump of the raw --session-id argument.
+            println!("{}{}", SESSION_FINALIZED_PREFIX, session.id);
             println!("Decision: {:?}", session.human_decision.as_ref().unwrap().decision);
         }
 
         Commands::Cancel { session_id } => {
             let id = parse_uuid(&session_id)?;
              let _session = orchestrator.cancel(&id)?;
-            println!("Session cancelled: {}", id);
+            println!("Session cancelled: {REDACTED_SESSION}");
         }
 
         Commands::DriftCheck {

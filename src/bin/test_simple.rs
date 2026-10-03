@@ -70,7 +70,7 @@ async fn main() {
     };
     
     let session_id = session.id;
-    println!("Creating session: {}", session_id);
+    println!("Creating session: [redacted-session]");
     
     // Create the session
     match orchestrator.session_manager().create_session(session) {
