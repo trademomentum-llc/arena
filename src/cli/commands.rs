@@ -11,7 +11,8 @@ use std::sync::Arc;
 /// Exact output markers that external tools (e.g. arenax Go wrapper) depend on.
 /// These are synchronized with the M2 synthesis for stable CLI contract (NFR-9).
 pub const SESSION_CREATED_PREFIX: &str = "Session created: ";
-pub const SESSION_FINALIZED_PREFIX: &str = "Session finalized: ";
+/// Success marker for `arena finalize`. Does not include the session id.
+pub const SESSION_FINALIZED_MESSAGE: &str = "Session finalized.";
 pub const NO_DRIFT_MESSAGE: &str = "No drift detected. Implementations match specs.";
 pub const DRIFT_FINDINGS_PREFIX: &str = "Drift findings (";
 
@@ -19,8 +20,9 @@ pub const DRIFT_FINDINGS_PREFIX: &str = "Drift findings (";
 /// Session ids authorize later CLI calls and must not be logged.
 pub const REDACTED_SESSION: &str = "[redacted-session]";
 
-/// Pure extraction of session ID from arena output (C3-style determinism ported back).
-/// Mirrors arenax ExtractUUID for contract fidelity.
+/// Pure extraction of session ID from arena *create* output.
+/// Mirrors arenax ExtractUUID for the create contract only.
+/// Finalize does not put the id on a log line; use [`session_id_from_record`].
 pub fn extract_session_id(output: &str) -> Option<String> {
     for line in output.lines() {
         let trimmed = line.trim();
@@ -30,14 +32,18 @@ pub fn extract_session_id(output: &str) -> Option<String> {
                 return Some(cand.to_string());
             }
         }
-        if let Some(rest) = trimmed.strip_prefix(SESSION_FINALIZED_PREFIX) {
-            let cand = rest.trim();
-            if is_rfc4122_uuid(cand) {
-                return Some(cand.to_string());
-            }
-        }
     }
     None
+}
+
+/// Session id from a structured record (`session_id` field), not from a log line.
+pub fn session_id_from_record(record: &serde_json::Value) -> Option<String> {
+    let cand = record.get("session_id")?.as_str()?.trim();
+    if is_rfc4122_uuid(cand) {
+        Some(cand.to_string())
+    } else {
+        None
+    }
 }
 
 fn is_rfc4122_uuid(s: &str) -> bool {
@@ -504,9 +510,11 @@ pub async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let session = orchestrator.finalize(&id, human_decision)?;
-            // Contract marker parsed by arenax ExtractUUID. Print the stored session id,
-            // not a diagnostic dump of the raw --session-id argument.
-            println!("{}{}", SESSION_FINALIZED_PREFIX, session.id);
+            // Do not print session.id. CodeQL rust/cleartext-logging flags that
+            // stdout line, and arenax must not scrape the id back out of it.
+            // Callers already passed --session-id; the id lives on the returned
+            // session (structured field), read via session_id_from_record.
+            println!("{SESSION_FINALIZED_MESSAGE}");
             println!("Decision: {:?}", session.human_decision.as_ref().unwrap().decision);
         }
 
@@ -832,8 +840,19 @@ mod contract_tests {
         let out = "Session created: 123e4567-e89b-12d3-a456-426614174000\nUse 'arena run ...'";
         assert_eq!(extract_session_id(out), Some("123e4567-e89b-12d3-a456-426614174000".to_string()));
 
+        // The historical log line must not be a parse source for the secret.
         let fin = "Session finalized: 123e4567-e89b-12d3-a456-426614174000\nDecision: Approve";
-        assert_eq!(extract_session_id(fin), Some("123e4567-e89b-12d3-a456-426614174000".to_string()));
+        assert_eq!(extract_session_id(fin), None);
+        assert_eq!(
+            session_id_from_record(&serde_json::json!({
+                "session_id": "123e4567-e89b-12d3-a456-426614174000"
+            })),
+            Some("123e4567-e89b-12d3-a456-426614174000".to_string())
+        );
+        assert_eq!(
+            session_id_from_record(&serde_json::json!({"session_id": "not-a-uuid"})),
+            None
+        );
     }
 
     #[test]

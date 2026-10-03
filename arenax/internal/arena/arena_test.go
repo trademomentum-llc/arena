@@ -23,10 +23,10 @@ func TestExtractUUID_table(t *testing.T) {
 			false,
 		},
 		{
-			"finalize marker",
+			"finalize log line is not a source",
 			"Session finalized: 00000000-0000-0000-0000-000000000000",
-			"00000000-0000-0000-0000-000000000000",
-			false,
+			"",
+			true,
 		},
 		{
 			"malformed uuid",
@@ -69,6 +69,23 @@ func TestExtractUUID_table(t *testing.T) {
 				t.Errorf("got %s want %s", got, c.want)
 			}
 		})
+	}
+}
+
+func TestSessionIDFromRecord(t *testing.T) {
+	got, err := SessionIDFromRecord([]byte(`{"session_id":"00000000-0000-0000-0000-000000000000"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "00000000-0000-0000-0000-000000000000" {
+		t.Fatalf("got %s", got)
+	}
+	if _, err := SessionIDFromRecord([]byte(`{"session_id":"Session finalized: 00000000-0000-0000-0000-000000000000"}`)); err == nil {
+		t.Fatal("expected log-shaped field to be rejected")
+	}
+	// A log line is not a structured record.
+	if _, err := SessionIDFromRecord([]byte("Session finalized: 00000000-0000-0000-0000-000000000000")); err == nil {
+		t.Fatal("expected log line to be rejected")
 	}
 }
 
